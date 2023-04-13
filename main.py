@@ -31,10 +31,12 @@ def main() -> None:
 
     # entities
     feeder = entities.Feeder(DS)
-    bunnies = [entities.Bunny(DS)]
+    blobs = [entities.Blob(DS)]
 
     # timers
     last_time = time.perf_counter()
+    spawn_timer = time.perf_counter()
+    spawn_time = 3
 
     bg_particle_timer = time.perf_counter()
 
@@ -60,6 +62,10 @@ def main() -> None:
         ]
 
         # logic of the game objects and entities
+        if time.perf_counter() - spawn_timer > spawn_time*dt:
+            blobs.append(entities.Blob(DS))
+            spawn_timer = time.perf_counter()
+
         if time.perf_counter() - bg_particle_timer > 0.1:
             background_particles.add([0, DS[1]], rnd.randint(-90, 0), rnd.randint(1, 3), rnd.randint(60, 100),
                                      (200, 100, 0), 0.5)
@@ -84,12 +90,15 @@ def main() -> None:
         pygame.draw.line(display, (0, 0, 0), (0, 60), (DS[1], 60), 3)  # rail of the feeder
         feeder.draw(display, dt)
 
-        # drawing the bunnies
-        for b in sorted(bunnies, key=lambda x: x.radius, reverse=True):
+        # drawing the blobs
+        for b in sorted(blobs, key=lambda i: i.radius, reverse=True):
             b.update(dt, feeder.particles.objects)
             b.draw(display, dt)
+            if b.not_feed:
+                for x in blobs:
+                    x.radius = x.max_radius
             if not b.alive and b.particles.objects == []:
-                bunnies.remove(b)
+                blobs.remove(b)
 
         # draw the bunny platform
         pygame.draw.rect(display, (0, 255, 100), (0, DS[1] - DS[1] / 6, 600, 600))
@@ -154,7 +163,7 @@ def main() -> None:
 
         surf = pygame.transform.scale(display, WS)
         window.blit(surf, display_offset)
-        clock.tick(61)
+        clock.tick(60)
 
     pygame.quit()
 
