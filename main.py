@@ -12,6 +12,7 @@ import entities
 
 def main() -> None:
     pygame.init()
+    pygame.mixer.init()
 
     ZOOM = [1, 1]
     WS = 600, 600
@@ -23,15 +24,27 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     # assets
+    ground_sprite = pygame.image.load("assets/sprites/ground.png").convert()
+    ground_sprite.set_colorkey((255, 255, 255))
+
+    main_font = pygame.font.Font("assets/font/main-font.ttf", 40)
+    secondary_font = pygame.font.Font("assets/font/main-font.ttf", 25)
 
     # logic variables
+    points = 0
     background_points = [[i] for i in range(-200, DS[1] + 100, 100)]
     background_particles = ShapeParticles("circle", 0.0)
     display_offset = [0, 0]
+    game_over = False
+    game_over_sound = pygame.mixer.Sound("assets/sound_effects/game-over-sound.mp3")
+    game_over_sound.set_volume(0.5)
+
+    game_over_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2-600)
+    game_over_gui_dest_position = pygame.Vector2(DS[0]/2, DS[1]/2)
 
     # entities
     feeder = entities.Feeder(DS)
-    blobs = [entities.Blob(DS)]
+    blobs = []
 
     # timers
     last_time = time.perf_counter()
@@ -39,6 +52,14 @@ def main() -> None:
     spawn_time = 3
 
     bg_particle_timer = time.perf_counter()
+
+    # music
+    button_press_sound = pygame.mixer.Sound("assets/sound_effects/button_press.mp3")
+
+    pygame.mixer.music.load("assets/music/music-for-game.mp3")
+    pygame.mixer.music.set_volume(0.1)
+
+    pygame.mixer.music.play(-1)
 
     done = False
     while not done:
@@ -62,7 +83,7 @@ def main() -> None:
         ]
 
         # logic of the game objects and entities
-        if time.perf_counter() - spawn_timer > spawn_time*dt:
+        if time.perf_counter() - spawn_timer > spawn_time*dt and not game_over:
             blobs.append(entities.Blob(DS))
             spawn_timer = time.perf_counter()
 
@@ -97,11 +118,92 @@ def main() -> None:
             if b.not_feed:
                 for x in blobs:
                     x.radius = x.max_radius
+                game_over = True
+                game_over_sound.play()
+                pygame.mixer.music.stop()
             if not b.alive and b.particles.objects == []:
                 blobs.remove(b)
+                if not game_over:
+                    points += b.points
 
         # draw the bunny platform
-        pygame.draw.rect(display, (0, 255, 100), (0, DS[1] - DS[1] / 6, 600, 600))
+        display.blit(ground_sprite, (0, DS[1] - DS[1]/6-10))
+
+        # drawing and updating the Game Over GUI
+        if game_over:
+            game_over_gui_position.x += (game_over_gui_dest_position.x - game_over_gui_position.x) / 20
+            game_over_gui_position.y += (game_over_gui_dest_position.y - game_over_gui_position.y) / 20
+
+            game_over_gui = {
+                "outer_window": pygame.Rect(game_over_gui_position.x - 420 / 2, game_over_gui_position.y - 420 / 2, 420,
+                                            420),
+                "inner_window": pygame.Rect(game_over_gui_position.x - 360 / 2, game_over_gui_position.y - 360 / 2, 360,
+                                            360),
+                "Title_text": main_font.render("GAME OVER :(", True, (255, 255, 0)),
+                "Title_text_shadow": main_font.render("GAME OVER :(", True, (0, 0, 0)),
+                "score_text": secondary_font.render(f"score: {points}", True, (255, 255, 0)),
+                "score_text_shadow": secondary_font.render(f"score: {points}", True, (0, 0, 0)),
+
+                "reset_button_rect": pygame.Rect(game_over_gui_position.x-80/2, game_over_gui_position.y-50/2+30, 80, 50),
+                "reset_button_text": secondary_font.render("RESET", True, (255, 255, 255)),
+                "reset_button_color": (255, 255, 0),
+                "quit_button_rect": pygame.Rect(game_over_gui_position.x-80/2, game_over_gui_position.y-50/2+90, 80, 50),
+                "quit_button_text": secondary_font.render("QUIT", True, (255, 255, 255)),
+                "quit_button_color": (255, 0, 0)
+            }
+
+            pygame.draw.rect(display, (0, 0, 0), (game_over_gui.get("outer_window").x+3, game_over_gui.get("outer_window").y+3, game_over_gui.get("outer_window").w, game_over_gui.get("outer_window").h))
+            pygame.draw.rect(display, (100, 150, 0), game_over_gui.get("outer_window"))
+            pygame.draw.rect(display, (0, 0, 0), (game_over_gui.get("inner_window").x+3, game_over_gui.get("inner_window").y+3, game_over_gui.get("inner_window").w, game_over_gui.get("inner_window").h))
+            pygame.draw.rect(display, (100, 100, 100), game_over_gui.get("inner_window"))
+
+            # button logic
+            if game_over_gui["reset_button_rect"].collidepoint(mouse_position):
+                game_over_gui["reset_button_color"] = (200, 200, 0)
+                if mouse_press[0]:
+                    button_press_sound.play()
+                    feeder = entities.Feeder(DS)
+                    blobs = []
+                    points = 0
+                    game_over = False
+                    pygame.mixer.music.play(-1)
+            else:
+                game_over_gui["reset_button_color"] = (255, 255, 0)
+
+            if game_over_gui["quit_button_rect"].collidepoint(mouse_position):
+                game_over_gui["quit_button_color"] = (200, 0, 0)
+                if mouse_press[0]:
+                    button_press_sound.play()
+                    done = True
+            else:
+                game_over_gui["quit_button_color"] = (255, 0, 0)
+
+            # buttons
+            pygame.draw.rect(display, (0, 0, 0), (game_over_gui["reset_button_rect"].x+3, game_over_gui["reset_button_rect"].y+3, game_over_gui["reset_button_rect"].w, game_over_gui["reset_button_rect"].h))
+            pygame.draw.rect(display, game_over_gui["reset_button_color"], game_over_gui["reset_button_rect"])
+
+            pygame.draw.rect(display, (0, 0, 0), (game_over_gui["quit_button_rect"].x+3, game_over_gui["quit_button_rect"].y+3, game_over_gui["quit_button_rect"].w, game_over_gui["quit_button_rect"].h))
+            pygame.draw.rect(display, game_over_gui["quit_button_color"], game_over_gui["quit_button_rect"])
+
+            # button text
+            display.blit(
+                game_over_gui["reset_button_text"],
+                (game_over_gui_position.x - game_over_gui["reset_button_text"].get_width() / 2, game_over_gui_position.y-game_over_gui["reset_button_text"].get_height()/2+34)
+            )
+
+            display.blit(
+                game_over_gui["quit_button_text"],
+                (game_over_gui_position.x - game_over_gui["quit_button_text"].get_width() / 2, game_over_gui_position.y-game_over_gui["quit_button_text"].get_height()/2+94)
+            )
+
+            # text
+            display.blit(game_over_gui.get("Title_text_shadow"), (game_over_gui_position.x-game_over_gui.get("Title_text").get_width()/2+3, game_over_gui_position.y-160+3))
+            display.blit(game_over_gui.get("Title_text"), (game_over_gui_position.x-game_over_gui.get("Title_text").get_width()/2, game_over_gui_position.y-160))
+
+            game_over_gui["score_text"] = secondary_font.render(f"score: {points}", True, (255, 255, 0))
+            game_over_gui["score_text_shadow"] = secondary_font.render(f"score: {points}", True, (0, 0, 0))
+            display.blit(game_over_gui.get("score_text_shadow"), (game_over_gui_position.x-game_over_gui.get("score_text").get_width()/2+3, game_over_gui_position.y-100+3))
+            display.blit(game_over_gui.get("score_text"), (game_over_gui_position.x-game_over_gui.get("score_text").get_width()/2, game_over_gui_position.y-100))
 
         pygame.display.update()
 
@@ -144,6 +246,9 @@ def main() -> None:
                     elif event.w == event.h:
                         WS = event.w, event.w
                         ZOOM = [ORIGIN_WS[0] / WS[0], ORIGIN_WS[1] / WS[1]]
+
+                for b in blobs:
+                    b.position.y = b.dest
 
         pygame.display.set_caption(f"feed the bunny FPS: {round(clock.get_fps(), 2)}")
 

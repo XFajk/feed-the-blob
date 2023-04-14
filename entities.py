@@ -47,6 +47,9 @@ class Feeder:
                 particle["loc"] = [self.position.x - 5, self.position.y + self.radius]
 
         self.particles.use(display, dt, lambda x, d: pygame.draw.circle(display, (0, 0, 0), (x["loc"][0] + 3, x["loc"][1] + 3), x["size"]))  # draws the food particles
+        for p in self.particles.objects:
+            if p["loc"][1] > self.ds[1]-self.ds[1]/6:
+                p["size"] = 0
         pygame.draw.circle(display, (0, 0, 0), (self.position.x, self.position.y), 5, 2)  # draws the handle on the zip line
         self.inner_particles.use(display, dt, inner_particles_movement)  # draws the inner particles
         # this function draws the transparent globe
@@ -103,6 +106,7 @@ class Blob:
         self.radius = 32
         self.position = pygame.Vector2(ds[0] / 2, ds[1]+30)
         self.dest = ds[1] - ds[1] / 6 - self.radius
+        self.points = 10
 
         self.max_radius = 100
         self.mouth_collider = pygame.Rect(self.position.x - self.radius, self.position.y - self.radius, self.radius * 2, 10)
@@ -138,10 +142,23 @@ class Blob:
 
         # timer
         self.not_feed_timer = time.perf_counter()
-        self.not_feed_time = 10
+        self.not_feed_time = 7
         self.not_feed = False
 
         self.alive = True
+
+        # sound effects
+        self.plop_counter = 49
+        self.plop_sound = pygame.mixer.Sound("assets/sound_effects/the plop_sound.mp3")
+
+        self.explosion_sound = pygame.mixer.Sound("assets/sound_effects/explosion.mp3")
+        self.explosion_sound.set_volume(0.2)
+
+        # text and font
+        self.font = pygame.font.Font("assets/font/main-font.ttf", 25)
+        self.points_text = self.font.render(f"+{self.points}", True, (255, 0, 0))
+        self.points_text_position = pygame.Vector2(self.position)
+        self.points_text_timer = None
 
     def draw(self, display, dt):
         def inner_particles_move(particle, d):
@@ -175,6 +192,7 @@ class Blob:
             self.outer_particles.use(display, dt, outer_particle_move)
             pygame.draw.ellipse(display, self.body_color, (self.position.x - self.radius, self.position.y - self.radius + self.radius / 2, self.radius*2, self.radius * 2))
             self.inner_particles.use(display, dt, inner_particles_move)
+            self.points_text_position = pygame.Vector2(self.position)
         self.particles.use(display, dt, lambda x, d: pygame.draw.circle(display, (0, 0, 0), (x["loc"][0] + 3, x["loc"][1] + 3), x["size"]))
 
         def inner_particles_move(particle, d):
@@ -184,6 +202,13 @@ class Blob:
                 particle["vel"][0] *= -1
                 particle["vel"][1] *= -1
         self.inner_particles.use(display, dt, inner_particles_move)
+
+        if not self.alive and self.radius >= self.max_radius:
+            if self.points_text_timer is None:
+                self.points_text_timer = time.perf_counter()
+            if time.perf_counter() - self.points_text_timer < 1:
+                display.blit(self.points_text, (self.points_text_position.x-self.points_text.get_width()/2, self.points_text_position.y))
+                self.points_text_position.y -= 0.5 * dt
 
     def update(self, dt, foods):
 
@@ -231,6 +256,7 @@ class Blob:
         # feeding the blob
         for food in foods:
             if self.mouth_collider.collidepoint(food["loc"]) and self.radius < self.max_radius:
+                self.plop_counter += 1
                 self.radius += self.growth_speed*dt
                 self.position.y -= self.growth_speed
                 self.not_feed_timer = 0
@@ -247,6 +273,7 @@ class Blob:
             self.outer_particles.objects = []
             self.not_feed_timer = 0
             self.not_feed = False
+            self.explosion_sound.play()
             for i in range(100):
                 self.particles.add(
                     [self.position.x, self.position.y],
@@ -269,7 +296,6 @@ class Blob:
             self.alive = False
 
         # not feed logic
-
         if time.perf_counter() - self.not_feed_timer > self.not_feed_time/2 and self.alive:
             color = self.body_color.copy()
             self.body_color[0] += (self.dest_color[0] - self.body_color[0]) / 10
@@ -288,3 +314,8 @@ class Blob:
         if time.perf_counter() - self.not_feed_timer > self.not_feed_time and self.alive:
             self.not_feed = True
             self.not_feed_timer = time.perf_counter()
+
+        # sound logic
+        if self.plop_counter > 50:
+            self.plop_sound.play()
+            self.plop_counter = 0
