@@ -6,11 +6,15 @@ import time
 import random as rnd
 import math
 import sys
+import os
 
 import entities
 
 
 def main() -> None:
+    if sys.platform == "darwin":  # checking if the operating system is macOS
+        os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # sets the current working directory to the directory containing the script
+
     pygame.init()
     pygame.mixer.init()
 
@@ -29,6 +33,7 @@ def main() -> None:
 
     main_font = pygame.font.Font("assets/font/main-font.ttf", 40)
     secondary_font = pygame.font.Font("assets/font/main-font.ttf", 25)
+    title_font = pygame.font.Font("assets/font/title-font.ttf", 70)
 
     # logic variables
     points = 0
@@ -42,6 +47,12 @@ def main() -> None:
     game_over_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2-600)
     game_over_gui_dest_position = pygame.Vector2(DS[0]/2, DS[1]/2)
 
+    game_started = False
+
+    game_started_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2)
+    game_started_gui_dest_position = game_started_gui_position
+    play_button_pressed = False,
+
     # entities
     feeder = entities.Feeder(DS)
     blobs = []
@@ -49,7 +60,7 @@ def main() -> None:
     # timers
     last_time = time.perf_counter()
     spawn_timer = time.perf_counter()
-    spawn_time = 3
+    spawn_time = 2
 
     bg_particle_timer = time.perf_counter()
 
@@ -83,8 +94,9 @@ def main() -> None:
         ]
 
         # logic of the game objects and entities
-        if time.perf_counter() - spawn_timer > spawn_time*dt and not game_over:
-            blobs.append(entities.Blob(DS))
+        if time.perf_counter() - spawn_timer > spawn_time*dt and not game_over and game_started:
+            the_blob = rnd.choices([entities.Blob(DS), entities.SpeedBlob(DS), entities.HeavyBlob(DS), entities.RandomBlob(DS)], weights=[4, 8, 2, 3])
+            blobs.append(the_blob[0])
             spawn_timer = time.perf_counter()
 
         if time.perf_counter() - bg_particle_timer > 0.1:
@@ -113,7 +125,7 @@ def main() -> None:
 
         # drawing the blobs
         for b in sorted(blobs, key=lambda i: i.radius, reverse=True):
-            b.update(dt, feeder.particles.objects)
+            b.update(dt, feeder.particles.objects, game_over)
             b.draw(display, dt)
             if b.not_feed:
                 for x in blobs:
@@ -123,11 +135,79 @@ def main() -> None:
                 pygame.mixer.music.stop()
             if not b.alive and b.particles.objects == []:
                 blobs.remove(b)
-                if not game_over:
-                    points += b.points
+
+            if not game_over and not b.alive:
+                points += b.points
+                b.points = 0
 
         # draw the bunny platform
         display.blit(ground_sprite, (0, DS[1] - DS[1]/6-10))
+
+        # drawing the Game Not Started GUI
+        if not game_started:
+
+            game_started_gui_position.x += (game_started_gui_dest_position.x - game_started_gui_position.x) / 20
+            game_started_gui_position.y += (game_started_gui_dest_position.y - game_started_gui_position.y) / 20
+
+            game_started_gui = {
+                "title_text": title_font.render("feed-the-blob", True, (0, 0, 255)),
+                "title_text_shadow": title_font.render("feed-the-blob", True, (0, 0, 0)),
+
+                "play_button_rect": pygame.Rect(game_started_gui_position.x-80/2, game_started_gui_position.y-50/2-30, 80, 50),
+                "play_button_text": secondary_font.render("PLAY", True, (255, 255, 255)),
+                "play_button_color":  (0, 255, 0),
+
+                "quit_button_rect": pygame.Rect(game_started_gui_position.x-80/2, game_started_gui_position.y-50/2+50, 80, 50),
+                "quit_button_text": secondary_font.render("QUIT", True, (255, 255, 255)),
+                "quit_button_color": (0, 255, 0),
+            }
+
+            # tile
+            display.blit(game_started_gui["title_text_shadow"], (game_started_gui_position.x-game_started_gui["title_text_shadow"].get_width()/2+3, game_started_gui_position.y-game_started_gui["title_text_shadow"].get_height()/2-180+3))
+            display.blit(game_started_gui["title_text"], (game_started_gui_position.x-game_started_gui["title_text"].get_width()/2, game_started_gui_position.y-game_started_gui["title_text"].get_height()/2-180))
+
+            # button logic
+
+            if game_started_gui["play_button_rect"].collidepoint(mouse_position):
+                game_started_gui["play_button_color"] = (0, 200, 0)
+                if mouse_press[0] and not play_button_pressed:
+                    button_press_sound.play()
+                    play_button_pressed = True
+                    game_started_gui_dest_position = pygame.Vector2(game_started_gui_position.x, game_started_gui_position.y-600)
+                elif not mouse_press[0]:
+                    play_button_pressed = False
+            else:
+                play_button_pressed = False
+                game_started_gui["play_button_color"] = (0, 255, 0)
+
+            if game_started_gui["quit_button_rect"].collidepoint(mouse_position):
+                game_started_gui["quit_button_color"] = (200, 0, 0)
+                if mouse_press[0] and game_started_gui_dest_position == game_started_gui_position:
+                    button_press_sound.play()
+                    done = True
+            else:
+                game_started_gui["quit_button_color"] = (255, 0, 0)
+
+            # buttons
+            pygame.draw.rect(display, (0, 0, 0), (game_started_gui["play_button_rect"].x+3, game_started_gui["play_button_rect"].y+3, game_started_gui["play_button_rect"].w, game_started_gui["play_button_rect"].h))
+            pygame.draw.rect(display, game_started_gui["play_button_color"], game_started_gui["play_button_rect"])
+
+            pygame.draw.rect(display, (0, 0, 0), (game_started_gui["quit_button_rect"].x+3, game_started_gui["quit_button_rect"].y+3, game_started_gui["quit_button_rect"].w, game_started_gui["quit_button_rect"].h))
+            pygame.draw.rect(display, game_started_gui["quit_button_color"], game_started_gui["quit_button_rect"])
+
+            # button text
+            display.blit(
+                game_started_gui["play_button_text"],
+                (game_started_gui_position.x - game_started_gui["play_button_text"].get_width() / 2, game_started_gui_position.y-game_started_gui["play_button_text"].get_height()/2-26)
+            )
+
+            display.blit(
+                game_started_gui["quit_button_text"],
+                (game_started_gui_position.x - game_started_gui["quit_button_text"].get_width() / 2, game_started_gui_position.y-game_started_gui["quit_button_text"].get_height()/2+54)
+            )
+
+            if game_started_gui_position.y < -100:
+                game_started = True
 
         # drawing and updating the Game Over GUI
         if game_over:

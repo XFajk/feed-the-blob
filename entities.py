@@ -122,14 +122,14 @@ class Blob:
         # these particles are the white particles inside the blob
         self.inner_particles = ShapeParticles("circle", 0.0)
         for i in range(10):
-            self.inner_particles.add([self.position.x, self.position.y], rnd.randint(0, 360), rnd.randint(1, 2)/5, rnd.randint(4, 10), self.inner_particles_color, 0.0)
+            self.inner_particles.add([self.position.x, self.position.y], rnd.randint(0, 360), rnd.randint(1, 2)/5, rnd.randint(int(self.radius/4), int(self.radius/3)), self.inner_particles_color, 0.0)
 
         # this collider holds them in position, so they don't go outside the blob
         self.inner_particles_collider = pygame.Rect(self.position.x - self.radius, self.position.y - self.radius + self.radius / 2, self.radius * 2, self.radius * 2)
 
         self.outer_particles = ShapeParticles("circle", 0.0)
         for i in range(20):
-            self.outer_particles.add([self.position.x, self.position.y], rnd.randint(0, 360), rnd.randint(1, 5)/5, rnd.randint(10, 15), tuple(self.body_color), 0.0)
+            self.outer_particles.add([self.position.x, self.position.y], rnd.randint(0, 360), rnd.randint(1, 5)/5, rnd.randint(int(self.radius/2-5), int(self.radius/2)), tuple(self.body_color), 0.0)
 
         # this collider holds them in position, so they don't go outside the blob
         self.outer_particles_collider = pygame.Rect(self.position.x - self.radius, self.position.y - self.radius + self.radius / 2, self.radius * 2, self.radius * 2)
@@ -210,7 +210,7 @@ class Blob:
                 display.blit(self.points_text, (self.points_text_position.x-self.points_text.get_width()/2, self.points_text_position.y))
                 self.points_text_position.y -= 0.5 * dt
 
-    def update(self, dt, foods):
+    def update(self, dt, foods, game_over):
 
         # updates the colliders
         self.mouth_collider = pygame.Rect(self.position.x - self.radius, self.position.y - self.radius, self.radius * 2, self.radius*2)  # update collider
@@ -260,8 +260,8 @@ class Blob:
                 self.radius += self.growth_speed*dt
                 self.position.y -= self.growth_speed
                 self.not_feed_timer = 0
-                self.dest_color = [255, 0, 0]
-                self.body_color = [208, 208, 208]
+                self.dest_color = self.const_dest_color.copy()
+                self.body_color = self.const_body_color.copy()
                 self.not_feed_timer = time.perf_counter()
                 for p in self.inner_particles.objects:
                     p["size"] += self.growth_speed/2*dt
@@ -272,8 +272,9 @@ class Blob:
             self.inner_particles.objects = []
             self.outer_particles.objects = []
             self.not_feed_timer = 0
+            if not game_over:
+                self.explosion_sound.play()
             self.not_feed = False
-            self.explosion_sound.play()
             for i in range(100):
                 self.particles.add(
                     [self.position.x, self.position.y],
@@ -290,7 +291,7 @@ class Blob:
                     rnd.randint(0, 360),
                     rnd.randint(100, 1500)/100,
                     rnd.randint(20, 40),
-                    (rnd.randint(200, 220), rnd.randint(200, 220), rnd.randint(200, 220)),
+                    (rnd.randint(self.const_body_color[0]-40, self.const_body_color[0]), rnd.randint(self.const_body_color[0]-40, self.const_body_color[0]), rnd.randint(self.const_body_color[0]-40, self.const_body_color[0])),
                     0.1
                 )
             self.alive = False
@@ -319,3 +320,74 @@ class Blob:
         if self.plop_counter > 50:
             self.plop_sound.play()
             self.plop_counter = 0
+
+
+class SpeedBlob(Blob):
+    def __init__(self, ds):
+        super().__init__(ds)
+
+        self.speed = rnd.randint(3, 6)
+        self.max_radius = 50
+        self.radius = rnd.randint(20, 25)
+        self.body_color = [100, 0, 255]
+        self.const_body_color = [100, 0, 255]
+        self.const_dest_color = [255, 0, 0]
+        self.dest_color = [255, 0, 0]
+        self.not_feed_time = 6
+        self.points = 15
+
+        self.dest = ds[1] - ds[1] / 6 - self.radius
+
+        self.points_text = self.font.render(f"+{self.points}", True, (255, 0, 0))
+
+
+class HeavyBlob(Blob):
+    def __init__(self, ds):
+        super().__init__(ds)
+
+        self.speed = rnd.randint(1, 2)/2
+        self.max_radius = 200
+        self.radius = rnd.randint(100, 120)
+        self.position = pygame.Vector2(ds[0] / 2, ds[1] + self.radius/2)
+        self.body_color = [150, 50, 0]
+        self.const_body_color = [150, 50, 0]
+        self.const_dest_color = [255, 0, 0]
+        self.dest_color = [255, 0, 0]
+        self.not_feed_time = 5
+        self.points = 20
+        self.growth_speed = 0.01
+
+        self.dest = ds[1] - ds[1] / 6 - self.radius
+
+        self.points_text = self.font.render(f"+{self.points}", True, (255, 0, 0))
+
+
+class RandomBlob(Blob):
+    def __init__(self, ds):
+        super().__init__(ds)
+
+        self.speed = rnd.randint(1, 2)
+        self.max_radius = 75
+        self.radius = rnd.randint(20, 35)
+        self.growth_speed = 0.05
+        self.body_color = [150, 150, 250]
+        self.const_body_color = [150, 150, 250]
+        self.const_dest_color = [255, 0, 0]
+        self.dest_color = [255, 0, 0]
+        self.not_feed_time = 6
+        self.points = 25
+
+        self.dest = ds[1] - ds[1] / 6 - self.radius
+
+        self.points_text = self.font.render(f"+{self.points}", True, (255, 0, 0))
+
+        self.change_dir_timer = time.perf_counter()
+        self.change_dir_time = rnd.randint(1, 6)
+
+    def update(self, dt, foods, game_over):
+        if time.perf_counter() - self.change_dir_timer > self.change_dir_time:
+            self.direction = rnd.choice([1, -1])
+            self.change_dir_timer = time.perf_counter()
+            self.change_dir_time = rnd.randint(1, 6)
+
+        super().update(dt, foods, game_over)
