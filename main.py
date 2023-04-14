@@ -31,6 +31,15 @@ def main() -> None:
     ground_sprite = pygame.image.load("assets/sprites/ground.png").convert()
     ground_sprite.set_colorkey((255, 255, 255))
 
+    icon_sprite = pygame.image.load("assets/sprites/icon.png").convert()
+
+    button_press_sound = pygame.mixer.Sound("assets/sound_effects/button_press.mp3")
+
+    pygame.mixer.music.load("assets/music/music-for-game.mp3")
+    pygame.mixer.music.set_volume(0.1)
+
+    pygame.mixer.music.play(-1)
+
     main_font = pygame.font.Font("assets/font/main-font.ttf", 40)
     secondary_font = pygame.font.Font("assets/font/main-font.ttf", 25)
     title_font = pygame.font.Font("assets/font/title-font.ttf", 70)
@@ -63,14 +72,6 @@ def main() -> None:
     spawn_time = 2
 
     bg_particle_timer = time.perf_counter()
-
-    # music
-    button_press_sound = pygame.mixer.Sound("assets/sound_effects/button_press.mp3")
-
-    pygame.mixer.music.load("assets/music/music-for-game.mp3")
-    pygame.mixer.music.set_volume(0.1)
-
-    pygame.mixer.music.play(-1)
 
     done = False
     while not done:
@@ -331,6 +332,7 @@ def main() -> None:
                     b.position.y = b.dest
 
         pygame.display.set_caption(f"feed the bunny FPS: {round(clock.get_fps(), 2)}")
+        pygame.display.set_icon(icon_sprite)
 
         """
             this makes sure that if the window is bigger
