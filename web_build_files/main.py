@@ -4,8 +4,6 @@ from pygame.locals import *
 import time
 import random as rnd
 import math
-import sys
-import os
 import asyncio
 
 
@@ -241,10 +239,11 @@ class Blob:
 
         # sound effects
         self.plop_counter = 49
-        self.plop_sound = pygame.mixer.Sound("the plop_sound.mp3")
+        self.plop_sound = pygame.mixer.Sound("the plop_sound.ogg")
+        self.plop_sound.set_volume(5)
 
-        self.explosion_sound = pygame.mixer.Sound("explosion.mp3")
-        self.explosion_sound.set_volume(0.2)
+        self.explosion_sound = pygame.mixer.Sound("explosion.ogg")
+        self.explosion_sound.set_volume(1)
 
         # text and font
         self.font = pygame.font.Font("main-font.ttf", 25)
@@ -504,9 +503,9 @@ async def main() -> None:
 
     icon_sprite = pygame.image.load("icon.png").convert()
 
-    button_press_sound = pygame.mixer.Sound("button_press.mp3")
+    button_press_sound = pygame.mixer.Sound("button_press.ogg")
 
-    pygame.mixer.music.load("music-for-game.mp3")
+    pygame.mixer.music.load("music-for-game.ogg")
     pygame.mixer.music.set_volume(0.1)
 
     pygame.mixer.music.play(-1)
@@ -521,8 +520,7 @@ async def main() -> None:
     background_particles = ShapeParticles("circle", 0.0)
     display_offset = [0, 0]
     game_over = False
-    game_over_sound = pygame.mixer.Sound("game-over-sound.mp3")
-    game_over_sound.set_volume(0.5)
+    game_over_sound = pygame.mixer.Sound("game-over-sound.ogg")
 
     game_over_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2-600)
     game_over_gui_dest_position = pygame.Vector2(DS[0]/2, DS[1]/2)
@@ -714,7 +712,7 @@ async def main() -> None:
                 game_over_gui["reset_button_color"] = (200, 200, 0)
                 if mouse_press[0]:
                     button_press_sound.play()
-                    feeder = entities.Feeder(DS)
+                    feeder = Feeder(DS)
                     blobs = []
                     points = 0
                     game_over = False
@@ -832,4 +830,3 @@ async def main() -> None:
 
 if __name__ == '__main__':
     asyncio.run(main())
-    sys.exit()
