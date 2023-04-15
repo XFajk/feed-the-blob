@@ -55,8 +55,10 @@ class Feeder:
         # this function draws the transparent globe
         display.blit(self.globe, (self.position.x-self.radius, self.position.y-self.radius+self.radius+5), special_flags=pygame.BLEND_RGB_ADD)
         # this function draws the lower part of the feeder
-        pygame.draw.ellipse(display, (255, 0, 0), (self.position.x-self.radius, self.position.y-self.radius+self.radius+self.radius+10, self.radius*2, 20))
+        pygame.draw.rect(display, (0, 0, 0), (self.position.x-7.5+3, self.position.y+self.radius*2+3, 15, 20))
         pygame.draw.rect(display, (150, 150, 150), (self.position.x-7.5, self.position.y+self.radius*2, 15, 20))
+        pygame.draw.ellipse(display, (0, 0, 0), (self.position.x-self.radius+3, self.position.y-self.radius+self.radius+self.radius+10+3, self.radius*2, 20))
+        pygame.draw.ellipse(display, (255, 0, 0), (self.position.x-self.radius, self.position.y-self.radius+self.radius+self.radius+10, self.radius*2, 20))
 
     def update(self, dt, mouse_press, mouse_position):
 
