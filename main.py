@@ -248,6 +248,7 @@ def main() -> None:
                     points = 0
                     game_over = False
                     pygame.mixer.music.play(-1)
+                    game_over_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2-600)
             else:
                 game_over_gui["reset_button_color"] = (255, 255, 0)
 
