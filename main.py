@@ -8,7 +8,7 @@ import math
 import sys
 import os
 
-import entities
+from entities import *
 
 
 def main() -> None:
@@ -33,6 +33,15 @@ def main() -> None:
 
     icon_sprite = pygame.image.load("assets/sprites/icon.png").convert()
 
+    mouse_pressed_spr = pygame.image.load("assets/sprites/mouse_pressed.png").convert()
+    mouse_pressed_spr.set_colorkey((255, 255, 255))
+
+    mouse_not_pressed_spr = pygame.image.load("assets/sprites/mouse_not_pressed.png").convert()
+    mouse_not_pressed_spr.set_colorkey((255, 255, 255))
+
+    mouse_sprs = [mouse_pressed_spr, mouse_not_pressed_spr]
+    mouse_sprs_index = 1
+
     button_press_sound = pygame.mixer.Sound("assets/sound_effects/button_press.mp3")
 
     pygame.mixer.music.load("assets/music/music-for-game.mp3")
@@ -42,8 +51,10 @@ def main() -> None:
 
     main_font = pygame.font.Font("assets/font/main-font.ttf", 40)
     secondary_font = pygame.font.Font("assets/font/main-font.ttf", 25)
+    small_font = pygame.font.Font("assets/font/main-font.ttf", 18)
     title_font = pygame.font.Font("assets/font/title-font.ttf", 70)
 
+    # logic variables
     # logic variables
     points = 0
     background_points = [[i] for i in range(-200, DS[1] + 100, 100)]
@@ -51,7 +62,6 @@ def main() -> None:
     display_offset = [0, 0]
     game_over = False
     game_over_sound = pygame.mixer.Sound("assets/sound_effects/game-over-sound.mp3")
-    game_over_sound.set_volume(0.5)
 
     game_over_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2-600)
     game_over_gui_dest_position = pygame.Vector2(DS[0]/2, DS[1]/2)
@@ -60,10 +70,25 @@ def main() -> None:
 
     game_started_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2)
     game_started_gui_dest_position = game_started_gui_position
-    play_button_pressed = False,
+    play_button_pressed = False
 
-    # entities
-    feeder = entities.Feeder(DS)
+    tutorial = False
+
+    tutorial_gui_position = pygame.Vector2(DS[0]/2, DS[1]/2)
+    tutorial_gui_dest_position = tutorial_gui_position
+
+    tutorial_mouse_position = pygame.Vector2(DS[0]/2+60, DS[1]/2-10)
+    tutorial_mouse_position_index = 3
+    tutorial_mouse_dest_positions = [pygame.Vector2(DS[0]/2-120, DS[1]/2-10), pygame.Vector2(0, 0), pygame.Vector2(DS[0]/2+60, DS[1]/2-10), pygame.Vector2(0, 0)]
+    tutorial_mouse_dest_position = pygame.Vector2(DS[0]/2-120, DS[1]/2)
+
+    tutorial_blob = Blob(DS)
+    tutorial_blob.speed = 0
+    tutorial_blob.mouth_collider = pygame.Rect(0, 0, 0, 0)
+
+    enter_pressed = False
+
+    feeder = Feeder(DS)
     blobs = []
 
     # timers
@@ -72,6 +97,8 @@ def main() -> None:
     spawn_time = 2
 
     bg_particle_timer = time.perf_counter()
+
+    tutorial_mouse_pressed_timer = time.perf_counter()
 
     done = False
     while not done:
@@ -95,8 +122,8 @@ def main() -> None:
         ]
 
         # logic of the game objects and entities
-        if time.perf_counter() - spawn_timer > spawn_time*dt and not game_over and game_started:
-            the_blob = rnd.choices([entities.Blob(DS), entities.SpeedBlob(DS), entities.HeavyBlob(DS), entities.RandomBlob(DS)], weights=[4, 8, 2, 3])
+        if time.perf_counter() - spawn_timer > spawn_time*dt and not game_over and game_started and not tutorial:
+            the_blob = rnd.choices([Blob(DS), SpeedBlob(DS), HeavyBlob(DS), RandomBlob(DS)], weights=[4, 8, 2, 3])
             blobs.append(the_blob[0])
             spawn_timer = time.perf_counter()
 
@@ -147,8 +174,8 @@ def main() -> None:
         # drawing the Game Not Started GUI
         if not game_started:
 
-            game_started_gui_position.x += (game_started_gui_dest_position.x - game_started_gui_position.x) / 20
-            game_started_gui_position.y += (game_started_gui_dest_position.y - game_started_gui_position.y) / 20
+            game_started_gui_position.x += (game_started_gui_dest_position.x - game_started_gui_position.x) / 20*dt
+            game_started_gui_position.y += (game_started_gui_dest_position.y - game_started_gui_position.y) / 20*dt
 
             game_started_gui = {
                 "title_text": title_font.render("feed-the-blob", True, (0, 0, 255)),
@@ -209,11 +236,99 @@ def main() -> None:
 
             if game_started_gui_position.y < -100:
                 game_started = True
+                tutorial = True
+
+        # drawing the Tutorial GUI
+        if tutorial:
+            tutorial_gui_position.x += (tutorial_gui_dest_position.x - tutorial_gui_position.x) / 20*dt
+            tutorial_gui_position.y += (tutorial_gui_dest_position.y - tutorial_gui_position.y) / 20*dt
+            tutorial_mouse_position.x += (tutorial_gui_dest_position.x - tutorial_gui_position.x) / 20*dt
+            tutorial_mouse_position.y += (tutorial_gui_dest_position.y - tutorial_gui_position.y) / 20*dt
+
+            tutorial_mouse_dest_positions = [pygame.Vector2(tutorial_gui_position.x - 120, tutorial_gui_position.y - 10), pygame.Vector2(0, 0),
+                                             pygame.Vector2(tutorial_gui_position.x + 60, tutorial_gui_position.y - 10), pygame.Vector2(0, 0)]
+            tutorial_mouse_dest_position = tutorial_mouse_dest_positions[tutorial_mouse_position_index]
+
+            if not mouse_sprs_index:
+                tutorial_mouse_position.x += (tutorial_mouse_dest_position.x - tutorial_mouse_position.x) / 20*dt
+                tutorial_mouse_position.y += (tutorial_mouse_dest_position.y - tutorial_mouse_position.y) / 20*dt
+
+            tutorial_gui = {
+                "outer_window1": pygame.Rect(tutorial_gui_position.x-440/2, tutorial_gui_position.y-220/2, 440, 220),
+                "inner_window1": pygame.Rect(tutorial_gui_position.x-400/2, tutorial_gui_position.y-180/2, 400, 180),
+
+                "1line1": small_font.render("control the feeder by holding the left mouse button", True, (255, 255, 0)),
+                "1line2": small_font.render("and by dragging the mouse around", True, (255, 255, 0)),
+                "1line1s": small_font.render("control the feeder by holding the left mouse button", True, (0, 0, 0)),
+                "1line2s": small_font.render("and by dragging the mouse around", True, (0, 0, 0)),
+                "1line3": small_font.render("press Enter", True, (255, 255, 0)),
+                "1line3s": small_font.render("press Enter", True, (0, 0, 0)),
+
+                "outer_window2": pygame.Rect(tutorial_gui_position.x-440/2+600, tutorial_gui_position.y-220/2, 440, 220),
+                "inner_window2": pygame.Rect(tutorial_gui_position.x-400/2+600, tutorial_gui_position.y-180/2, 400, 180),
+
+                "2line1": small_font.render("when the blob blinks red its going to explode", True, (255, 255, 0)),
+                "2line2": small_font.render("when it explodes this way its you lose the game", True, (255, 255, 0)),
+                "2line1s": small_font.render("when the blob blinks red its going to explode", True, (0, 0, 0)),
+                "2line2s": small_font.render("when it explodes this way its you lose the game", True, (0, 0, 0)),
+                "2line3": small_font.render("press Enter", True, (255, 255, 0)),
+                "2line3s": small_font.render("press Enter", True, (0, 0, 0)),
+            }
+
+            # drawing the windows
+            pygame.draw.rect(display, (0, 0, 0), (tutorial_gui["outer_window1"].x+3, tutorial_gui["outer_window1"].y+3, tutorial_gui["outer_window1"].w, tutorial_gui["outer_window1"].h))
+            pygame.draw.rect(display, (100, 150, 0), tutorial_gui["outer_window1"])
+            pygame.draw.rect(display, (0, 0, 0), (tutorial_gui["inner_window1"].x+3, tutorial_gui["inner_window1"].y+3, tutorial_gui["inner_window1"].w, tutorial_gui["inner_window1"].h))
+            pygame.draw.rect(display, (100, 100, 100), tutorial_gui["inner_window1"])
+
+            pygame.draw.rect(display, (0, 0, 0), (tutorial_gui["outer_window2"].x+3, tutorial_gui["outer_window2"].y+3, tutorial_gui["outer_window2"].w, tutorial_gui["outer_window2"].h))
+            pygame.draw.rect(display, (100, 150, 0), tutorial_gui["outer_window2"])
+            pygame.draw.rect(display, (0, 0, 0), (tutorial_gui["inner_window2"].x+3, tutorial_gui["inner_window2"].y+3, tutorial_gui["inner_window2"].w, tutorial_gui["inner_window2"].h))
+            pygame.draw.rect(display, (100, 100, 100), tutorial_gui["inner_window2"])
+
+            # drawing text
+            display.blit(tutorial_gui["1line1s"], (tutorial_gui_position.x-tutorial_gui["1line1s"].get_width()/2+3, tutorial_gui_position.y-tutorial_gui["1line1s"].get_height()/2-60+3))
+            display.blit(tutorial_gui["1line1"], (tutorial_gui_position.x-tutorial_gui["1line1"].get_width()/2, tutorial_gui_position.y-tutorial_gui["1line1"].get_height()/2-60))
+            display.blit(tutorial_gui["1line2s"], (tutorial_gui_position.x-tutorial_gui["1line2s"].get_width()/2+3, tutorial_gui_position.y-tutorial_gui["1line2s"].get_height()/2-40+3))
+            display.blit(tutorial_gui["1line2"], (tutorial_gui_position.x-tutorial_gui["1line2"].get_width()/2, tutorial_gui_position.y-tutorial_gui["1line2"].get_height()/2-40))
+            display.blit(tutorial_gui["1line3s"], (tutorial_gui_position.x-tutorial_gui["1line3s"].get_width()/2+3, tutorial_gui_position.y-tutorial_gui["1line3s"].get_height()/2+75+3))
+            display.blit(tutorial_gui["1line3"], (tutorial_gui_position.x-tutorial_gui["1line3"].get_width()/2, tutorial_gui_position.y-tutorial_gui["1line3"].get_height()/2+75))
+
+            display.blit(tutorial_gui["2line1s"], (tutorial_gui_position.x-tutorial_gui["2line1s"].get_width()/2+3+600, tutorial_gui_position.y-tutorial_gui["2line1s"].get_height()/2-60+3))
+            display.blit(tutorial_gui["2line1"], (tutorial_gui_position.x-tutorial_gui["2line1"].get_width()/2+600, tutorial_gui_position.y-tutorial_gui["2line1"].get_height()/2-60))
+            display.blit(tutorial_gui["2line2s"], (tutorial_gui_position.x-tutorial_gui["2line2s"].get_width()/2+3+600, tutorial_gui_position.y-tutorial_gui["2line2s"].get_height()/2-40+3))
+            display.blit(tutorial_gui["2line2"], (tutorial_gui_position.x-tutorial_gui["2line2"].get_width()/2+600, tutorial_gui_position.y-tutorial_gui["2line2"].get_height()/2-40))
+            display.blit(tutorial_gui["2line3s"], (tutorial_gui_position.x-tutorial_gui["2line3s"].get_width()/2+3+600, tutorial_gui_position.y-tutorial_gui["2line3s"].get_height()/2+75+3))
+            display.blit(tutorial_gui["2line3"], (tutorial_gui_position.x-tutorial_gui["2line3"].get_width()/2+600, tutorial_gui_position.y-tutorial_gui["2line3"].get_height()/2+75))
+
+            tutorial_blob.position = pygame.Vector2((tutorial_gui_position.x+600, tutorial_gui_position.y))
+            tutorial_blob.update(dt, [], False)
+            tutorial_blob.draw(display, dt)
+
+            display.blit(mouse_sprs[mouse_sprs_index], tutorial_mouse_position)
+
+            if time.perf_counter() - tutorial_mouse_pressed_timer > 3:
+                mouse_sprs_index += 1
+                tutorial_mouse_position_index += 1
+                if mouse_sprs_index > 1:
+                    mouse_sprs_index = 0
+                if tutorial_mouse_position_index > 3:
+                    tutorial_mouse_position_index = 0
+                tutorial_mouse_pressed_timer = time.perf_counter()
+
+            if keys[K_RETURN] and not enter_pressed:
+                enter_pressed = True
+                tutorial_gui_dest_position = pygame.Vector2(float(tutorial_gui_position.x)-600.0, tutorial_gui_position.y)
+            elif not keys[K_RETURN] and enter_pressed:
+                enter_pressed = False
+
+            if tutorial_gui_position.x < -800:
+                tutorial = False
 
         # drawing and updating the Game Over GUI
         if game_over:
-            game_over_gui_position.x += (game_over_gui_dest_position.x - game_over_gui_position.x) / 20
-            game_over_gui_position.y += (game_over_gui_dest_position.y - game_over_gui_position.y) / 20
+            game_over_gui_position.x += (game_over_gui_dest_position.x - game_over_gui_position.x) / 20*dt
+            game_over_gui_position.y += (game_over_gui_dest_position.y - game_over_gui_position.y) / 20*dt
 
             game_over_gui = {
                 "outer_window": pygame.Rect(game_over_gui_position.x - 420 / 2, game_over_gui_position.y - 420 / 2, 420,
@@ -243,7 +358,7 @@ def main() -> None:
                 game_over_gui["reset_button_color"] = (200, 200, 0)
                 if mouse_press[0]:
                     button_press_sound.play()
-                    feeder = entities.Feeder(DS)
+                    feeder = Feeder(DS)
                     blobs = []
                     points = 0
                     game_over = False
